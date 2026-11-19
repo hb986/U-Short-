@@ -153,6 +153,7 @@ private enum class Tab(val title:String) { HOME("Home"), CREATE("Create"), AUTO(
  val context= LocalContext.current
  val prefs=context.getSharedPreferences("ushort_settings",Context.MODE_PRIVATE)
  var endpoint by remember { mutableStateOf(prefs.getString("ai_endpoint","") ?: "") }
+ var accessToken by remember { mutableStateOf(prefs.getString("ai_access_token","") ?: "") }
  var message by remember { mutableStateOf("") }
  var reply by remember { mutableStateOf("") }
  var busy by remember { mutableStateOf(false) }
@@ -172,10 +173,12 @@ private enum class Tab(val title:String) { HOME("Home"), CREATE("Create"), AUTO(
     }
    }
    Spacer(Modifier.height(12.dp))
-   Text("AI server endpoint",color=Color.White,fontSize=12.sp)
-   OutlinedTextField(endpoint,{endpoint=it},modifier=Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("https://your-server.example/chat")})
-   Text("Use your own HTTPS backend. Expected API: POST JSON { message: string }, response JSON { reply: string }. Keep provider API keys on the server, never in the APK.",color=lilac,fontSize=10.sp)
-   Action("Save AI connection",{ prefs.edit().putString("ai_endpoint",endpoint.trim()).apply(); error="AI endpoint saved on this device." },false)
+   Text("Gemini backend URL",color=Color.White,fontSize=12.sp)
+   OutlinedTextField(endpoint,{endpoint=it},modifier=Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("https://your-service.onrender.com/api/chat")})
+   Text("App access token",color=Color.White,fontSize=12.sp)
+   OutlinedTextField(accessToken,{accessToken=it},modifier=Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("Paste your private app token")})
+   Text("The Gemini API key stays on the server. Enter the deployed HTTPS /api/chat URL and the matching USHORT_APP_TOKEN.",color=lilac,fontSize=10.sp)
+   Action("Save Gemini connection",{ prefs.edit().putString("ai_endpoint",endpoint.trim()).putString("ai_access_token",accessToken.trim()).apply(); error="Gemini connection settings saved on this device." },false)
   }
   Panel {
    Text("Ask U SHORT AI",color=Color.White,fontWeight=FontWeight.SemiBold)
@@ -189,12 +192,14 @@ private enum class Tab(val title:String) { HOME("Home"), CREATE("Create"), AUTO(
     onClick={
      val prompt=message.trim()
      val url=endpoint.trim()
+     val token=accessToken.trim()
      if(prompt.isEmpty()) error="Write a message first."
-     else if(url.isEmpty()) error="Add and save your AI backend endpoint first."
+     else if(url.isEmpty()) error="Add and save your Gemini backend URL first."
+     else if(token.isEmpty()) error="Enter the app access token from your backend settings."
      else {
       busy=true; error=""; reply=""
       scope.launch {
-       val result=withContext(Dispatchers.IO) { requestAssistant(url,prompt) }
+       val result=withContext(Dispatchers.IO) { requestAssistant(url,token,prompt) }
        result.fold(
         onSuccess={reply=it; message=""},
         onFailure={error=it.message ?: "AI request failed. Check the endpoint and try again."}
@@ -215,7 +220,7 @@ private enum class Tab(val title:String) { HOME("Home"), CREATE("Create"), AUTO(
  }
 }
 
-private fun requestAssistant(endpoint:String,prompt:String):Result<String> = runCatching {
+private fun requestAssistant(endpoint:String,token:String,prompt:String):Result<String> = runCatching {
  val connection= URL(endpoint).openConnection() as HttpURLConnection
  try {
   connection.requestMethod="POST"
@@ -224,6 +229,7 @@ private fun requestAssistant(endpoint:String,prompt:String):Result<String> = run
   connection.doOutput=true
   connection.setRequestProperty("Content-Type","application/json; charset=utf-8")
   connection.setRequestProperty("Accept","application/json")
+  connection.setRequestProperty("Authorization","Bearer $token")
   val body=JSONObject().put("message",prompt).toString()
   connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
   val code=connection.responseCode
