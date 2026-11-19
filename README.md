@@ -94,3 +94,22 @@ This is a staged roadmap, not a claim that all features already work:
 - **Not yet implemented / not yet verified:** The complete feature set above, including production-grade editing, rendering/export, AI services, social publishing and analytics, must be implemented and individually tested before release.
 
 **Absolute release rule:** deliver stable, genuinely usable stages incrementally. Beginners must be able to understand the interface while advanced creators retain access to professional controls. Everything organized, accessible and functional; no fake features or broken buttons.
+
+## Latest development increment — navigation and in-app AI connection
+
+- Added animated fade/slide transitions when switching primary workspaces.
+- Added a searchable, categorized tool library covering CREATE, EDIT, COLOR LAB, AI TOOLS, DISCOVER, PUBLISH and ANALYTICS.
+- Connected the Create hub to the Auto Shorts and Manual Shorts screens.
+- Added an in-app U SHORT AI chat screen with a configurable HTTPS backend endpoint saved in Android app preferences.
+- The AI client sends `POST { "message": "..." }` and expects `{ "reply": "..." }`. Provider credentials must remain on the server; do not embed API keys in the APK.
+- Added Android INTERNET permission for this opt-in network connection.
+
+### AI backend contract
+Configure the full chat endpoint URL in the AI screen. The server must accept JSON POST requests with a `message` string and return JSON with a non-empty `reply` string. It should authenticate requests, apply rate limits, protect secrets, and return useful HTTP error codes. Without a configured reachable endpoint, live AI responses are unavailable and the app reports that instead of fabricating a reply.
+
+### Status of this increment
+- **Implemented in source; awaiting CI build verification:** animated workspace navigation, searchable category directory, in-app AI chat client and endpoint persistence.
+- **Requires external configuration:** live AI answers (a deployed backend endpoint and provider/model credentials on that backend).
+- **Not yet implemented:** full automatic clip detection and rendering, multi-track timeline operations, advanced color pipeline/scopes/LUT processing, production audio tools, cloud projects, OAuth social publishing, scheduler and analytics.
+
+The tool directory is an organized roadmap and does not imply that every listed tool is already operational. Do not mark those tools complete until each implementation passes its own tests.
