@@ -3,11 +3,24 @@ package com.ushort.app
 import android.net.Uri
 import android.os.Bundle
 import android.view.ViewGroup
+import android.content.Context
+import java.net.HttpURLConnection
+import java.net.URL
+import org.json.JSONObject
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
@@ -27,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 
 private val ink = Color(0xFF21123E)
 private val lilac = Color(0xFFDCCBFF)
@@ -36,7 +50,7 @@ private val cyan = Color(0xFF49C9F0)
 class MainActivity : ComponentActivity() {
  override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); setContent { App() } }
 }
-private enum class Tab(val title:String) { HOME("Home"), AUTO("Auto"), MANUAL("Manual"), PRO("Pro"), PROFILE("Profile") }
+private enum class Tab(val title:String) { HOME("Home"), CREATE("Create"), EDIT("Edit"), AI("AI"), PROFILE("Profile") }
 
 @Composable fun App() {
  var tab by remember { mutableStateOf(Tab.HOME) }
@@ -47,20 +61,31 @@ private enum class Tab(val title:String) { HOME("Home"), AUTO("Auto"), MANUAL("M
    Row(Modifier.fillMaxWidth().padding(18.dp), verticalAlignment=Alignment.CenterVertically) {
     Box(Modifier.size(38.dp).clip(RoundedCornerShape(13.dp)).background(Brush.linearGradient(listOf(pink,Color(0xFF7839D1),cyan))), contentAlignment=Alignment.Center) { Icon(Icons.Default.PlayArrow,null,tint=Color.White) }
     Spacer(Modifier.width(10.dp)); Text("U SHORT",color=Color.White,fontSize=20.sp,fontWeight=FontWeight.Bold)
-    Spacer(Modifier.weight(1f)); Icon(Icons.Default.NotificationsNone,null,tint=Color.White)
+    Spacer(Modifier.weight(1f)); Text("CREATE • EDIT • AI",color=lilac,fontSize=9.sp)
    }
-   Box(Modifier.weight(1f)) {
-    when(tab) {
-     Tab.HOME -> Home({tab=Tab.AUTO},{tab=Tab.MANUAL},{tab=Tab.PRO})
-     Tab.AUTO -> Auto(video) { pick.launch(arrayOf("video/*")) }
-     Tab.MANUAL -> Manual(video) { pick.launch(arrayOf("video/*")) }
-     Tab.PRO -> Pro(video) { pick.launch(arrayOf("video/*")) }
+   AnimatedContent(
+    targetState=tab,
+    transitionSpec={ (fadeIn()+slideInHorizontally { it/10 }) togetherWith (fadeOut()+slideOutHorizontally { -it/10 }) },
+    label="main_navigation",
+    modifier=Modifier.weight(1f)
+   ) { page ->
+    when(page) {
+     Tab.HOME -> Home({tab=Tab.CREATE},{tab=Tab.CREATE},{tab=Tab.EDIT})
+     Tab.CREATE -> CreateHub(
+      auto={tab=Tab.CREATE},
+      manual={tab=Tab.CREATE},
+      chooseVideo={pick.launch(arrayOf("video/*"))},
+      selected=video!=null,
+      openAI={tab=Tab.AI}
+     )
+     Tab.EDIT -> Pro(video) { pick.launch(arrayOf("video/*")) }
+     Tab.AI -> AssistantScreen()
      Tab.PROFILE -> Profile()
     }
    }
    Row(Modifier.fillMaxWidth().padding(9.dp).clip(RoundedCornerShape(24.dp)).background(Color(0x5530195B)).border(1.dp,Color.White.copy(.2f),RoundedCornerShape(24.dp)).padding(vertical=9.dp),horizontalArrangement=Arrangement.SpaceAround) {
-    listOf(Tab.HOME to Icons.Default.Home,Tab.AUTO to Icons.Default.Bolt,Tab.MANUAL to Icons.Default.ContentCut,Tab.PRO to Icons.Default.Tune,Tab.PROFILE to Icons.Default.Person).forEach { (t,ic) ->
-     Column(Modifier.clickable { tab=t },horizontalAlignment=Alignment.CenterHorizontally) {
+    listOf(Tab.HOME to Icons.Default.Home,Tab.CREATE to Icons.Default.Bolt,Tab.EDIT to Icons.Default.Tune,Tab.AI to Icons.Default.AutoAwesome,Tab.PROFILE to Icons.Default.Person).forEach { (t,ic) ->
+     Column(Modifier.clickable { tab=t }.padding(horizontal=7.dp),horizontalAlignment=Alignment.CenterHorizontally) {
       Icon(ic,null,tint=if(tab==t) Color.White else lilac.copy(.7f),modifier=Modifier.size(20.dp))
       Text(t.title,color=if(tab==t) Color.White else lilac.copy(.7f),fontSize=9.sp)
      }
@@ -68,6 +93,145 @@ private enum class Tab(val title:String) { HOME("Home"), AUTO("Auto"), MANUAL("M
    }
   }
  }
+}
+
+@Composable private fun CreateHub(auto:()->Unit,manual:()->Unit,chooseVideo:()->Unit,selected:Boolean,openAI:()->Unit) {
+ var query by remember { mutableStateOf("") }
+ val groups=listOf(
+  "CREATE" to listOf("Auto Shorts","Manual Shorts","AI Script Writer","AI Storyboard"),
+  "EDIT" to listOf("Video Editor","Timeline","Transitions","Effects","Text & Captions","Audio Pro"),
+  "COLOR LAB" to listOf("Color Wheels","Curves","HSL","LUTs","Color Mixer","Scopes"),
+  "AI TOOLS" to listOf("Hook Master","Retention Booster","Background Remover","Video Enhancer","Voice Dubbing","Thumbnail Battle"),
+  "DISCOVER" to listOf("Viral Hunter","Trending Topics","Competitor Intelligence","Content Ideas"),
+  "PUBLISH" to listOf("Social Accounts","Content Calendar","Auto Scheduler","Smart Repost","Publishing Queue"),
+  "ANALYTICS" to listOf("Channel Performance","Video Statistics","Audience Insights","A/B Experiments")
+ )
+ Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+  Heading("Tool Library","Find every workspace in one organized place.")
+  OutlinedTextField(query,{query=it},modifier=Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("Search tools…")},leadingIcon={Icon(Icons.Default.Search,null,tint=Color.White)})
+  Panel {
+   Text("START CREATING",color=lilac,fontSize=10.sp,fontWeight=FontWeight.Bold)
+   Action("＋  Import video from phone",chooseVideo,true)
+   Text(if(selected) "A video is selected for preview." else "Choose a video to begin.",color=lilac,fontSize=11.sp)
+   Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+    Box(Modifier.weight(1f)){Action("Auto Shorts",auto,false)}
+    Box(Modifier.weight(1f)){Action("Manual Shorts",manual,false)}
+   }
+  }
+  groups.forEach { (name,items) ->
+   val filtered=items.filter { it.contains(query,true) }
+   if(filtered.isNotEmpty()) Panel {
+    Row(verticalAlignment=Alignment.CenterVertically) {
+     Text(name,color=Color.White,fontWeight=FontWeight.Bold,fontSize=13.sp)
+     Spacer(Modifier.weight(1f)); Text("${filtered.size} tools",color=lilac,fontSize=10.sp)
+    }
+    Spacer(Modifier.height(8.dp))
+    filtered.chunked(2).forEach { row ->
+     Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+      row.forEach { item ->
+       Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(.09f)).padding(11.dp)) {
+        Text(item,color=Color.White,fontSize=11.sp)
+       }
+      }
+      if(row.size==1) Spacer(Modifier.weight(1f))
+     }
+     Spacer(Modifier.height(6.dp))
+    }
+   }
+  }
+  Panel {
+   Text("AI WORKSPACE",color=Color.White,fontWeight=FontWeight.SemiBold)
+   Text("Connect your own secure AI backend to enable live assistant responses.",color=lilac,fontSize=11.sp)
+   Action("Open U SHORT AI",openAI,true)
+  }
+ }
+}
+
+@Composable private fun AssistantScreen() {
+ val context= LocalContext.current
+ val prefs=context.getSharedPreferences("ushort_settings",Context.MODE_PRIVATE)
+ var endpoint by remember { mutableStateOf(prefs.getString("ai_endpoint","") ?: "") }
+ var message by remember { mutableStateOf("") }
+ var reply by remember { mutableStateOf("") }
+ var busy by remember { mutableStateOf(false) }
+ var error by remember { mutableStateOf("") }
+ val scope= rememberCoroutineScope()
+ Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+  Heading("U SHORT AI","Your creative copilot, inside the app.")
+  Panel {
+   Row(verticalAlignment=Alignment.CenterVertically) {
+    Box(Modifier.size(42.dp).clip(CircleShape).background(Brush.linearGradient(listOf(pink,cyan))),contentAlignment=Alignment.Center) {
+     Icon(Icons.Default.AutoAwesome,null,tint=Color.White,modifier=Modifier.size(24.dp))
+    }
+    Spacer(Modifier.width(10.dp))
+    Column {
+     Text("U Assistant",color=Color.White,fontWeight=FontWeight.SemiBold)
+     Text(if(endpoint.isBlank()) "AI connection not configured" else "AI endpoint saved",color=lilac,fontSize=10.sp)
+    }
+   }
+   Spacer(Modifier.height(12.dp))
+   Text("AI server endpoint",color=Color.White,fontSize=12.sp)
+   OutlinedTextField(endpoint,{endpoint=it},modifier=Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("https://your-server.example/chat")})
+   Text("Use your own HTTPS backend. Expected API: POST JSON { message: string }, response JSON { reply: string }. Keep provider API keys on the server, never in the APK.",color=lilac,fontSize=10.sp)
+   Action("Save AI connection",{ prefs.edit().putString("ai_endpoint",endpoint.trim()).apply(); error="AI endpoint saved on this device." },false)
+  }
+  Panel {
+   Text("Ask U SHORT AI",color=Color.White,fontWeight=FontWeight.SemiBold)
+   if(reply.isNotBlank()) {
+    Text("ASSISTANT",color=cyan,fontSize=9.sp,fontWeight=FontWeight.Bold)
+    Text(reply,color=Color.White,fontSize=13.sp)
+   } else Text("Ask for video ideas, scripts, hooks, captions, or editing guidance.",color=lilac,fontSize=12.sp)
+   if(error.isNotBlank()) Text(error,color=if(error.contains("saved")) Color(0xFFB9FFD9) else Color(0xFFFFB5C1),fontSize=11.sp)
+   OutlinedTextField(message,{message=it},modifier=Modifier.fillMaxWidth(),placeholder={Text("Write your request…")},minLines=2)
+   Button(
+    onClick={
+     val prompt=message.trim()
+     val url=endpoint.trim()
+     if(prompt.isEmpty()) error="Write a message first."
+     else if(url.isEmpty()) error="Add and save your AI backend endpoint first."
+     else {
+      busy=true; error=""; reply=""
+      scope.launch {
+       val result=withContext(Dispatchers.IO) { requestAssistant(url,prompt) }
+       result.fold(
+        onSuccess={reply=it; message=""},
+        onFailure={error=it.message ?: "AI request failed. Check the endpoint and try again."}
+       )
+       busy=false
+      }
+     }
+    },
+    enabled=!busy,
+    modifier=Modifier.fillMaxWidth().height(48.dp),
+    shape=RoundedCornerShape(16.dp),
+    colors=ButtonDefaults.buttonColors(containerColor=Color.White,contentColor=ink)
+   ) {
+    if(busy) { CircularProgressIndicator(modifier=Modifier.size(18.dp),strokeWidth=2.dp,color=ink); Spacer(Modifier.width(8.dp)); Text("Connecting…") }
+    else { Icon(Icons.Default.Send,null); Spacer(Modifier.width(8.dp)); Text("Send to AI") }
+   }
+  }
+ }
+}
+
+private fun requestAssistant(endpoint:String,prompt:String):Result<String> = runCatching {
+ val connection= URL(endpoint).openConnection() as HttpURLConnection
+ try {
+  connection.requestMethod="POST"
+  connection.connectTimeout=15000
+  connection.readTimeout=45000
+  connection.doOutput=true
+  connection.setRequestProperty("Content-Type","application/json; charset=utf-8")
+  connection.setRequestProperty("Accept","application/json")
+  val body=JSONObject().put("message",prompt).toString()
+  connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+  val code=connection.responseCode
+  val stream=if(code in 200..299) connection.inputStream else connection.errorStream
+  val response=stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+  if(code !in 200..299) throw IllegalStateException("AI server returned HTTP $code: ${response.take(240)}")
+  val parsed=JSONObject(response)
+  parsed.optString("reply").takeIf { it.isNotBlank() }
+   ?: throw IllegalStateException("AI response must contain a non-empty 'reply' field.")
+ } finally { connection.disconnect() }
 }
 
 @Composable private fun Home(auto:()->Unit,manual:()->Unit,pro:()->Unit) {
