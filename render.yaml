@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: u-short-gemini-api
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: USHORT_APP_TOKEN
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.8-flash
