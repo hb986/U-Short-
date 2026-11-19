@@ -29,7 +29,7 @@ app.post("/api/chat", limiter, async (req, res) => {
       return res.status(503).json({ error: "Server is not configured. Add GEMINI_API_KEY and USHORT_APP_TOKEN." });
     }
 
-    const supplied = (req.get("authorization") || "").replace(/^Bearer\\s+/i, "");
+    const supplied = (req.get("authorization") || "").replace(/^Bearer\s+/i, "");
     if (!supplied || supplied !== accessToken) {
       return res.status(401).json({ error: "Invalid app access token." });
     }
@@ -47,7 +47,7 @@ app.post("/api/chat", limiter, async (req, res) => {
       "",
       "User request:",
       message
-    ].join("\\n");
+    ].join("\n");
 
     const interaction = await ai.interactions.create({
       model,
