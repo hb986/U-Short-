@@ -2,11 +2,16 @@ package com.ushort.app
 
 import android.net.Uri
 import android.os.Bundle
+import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -101,7 +106,7 @@ private enum class Tab(val title:String) { HOME("Home"), AUTO("Auto"), MANUAL("M
 @Composable private fun Manual(video:Uri?,pick:()->Unit) {
  Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp),verticalArrangement=Arrangement.spacedBy(13.dp)) {
   Heading("Manual Shorts","You choose. AI assists.")
-  Panel { Preview(); Action("＋  Import video",pick,false); if(video!=null) Text("Video selected ✓",color=Color(0xFFB9FFD9)) }
+  Panel { Preview(video); Action("＋  Import video",pick,false); if(video!=null) Text("Video selected ✓",color=Color(0xFFB9FFD9)) }
   Panel { Text("Quick tools",color=Color.White,fontWeight=FontWeight.SemiBold); ToolGrid(listOf("Trim","Split","Reorder","Captions","Music","Hook")) }
   Action("Create timeline",{},true)
   Text("Timeline engine will be connected in the next stage.",color=lilac,fontSize=12.sp)
@@ -132,10 +137,31 @@ private enum class Tab(val title:String) { HOME("Home"), AUTO("Auto"), MANUAL("M
 @Composable private fun Panel(content:@Composable ColumnScope.()->Unit) {
  Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(23.dp)).background(Brush.linearGradient(listOf(Color(0x44FFFFFF),Color(0x1CFFFFFF),Color(0x22B77BEB)))).border(1.dp,Color.White.copy(.25f),RoundedCornerShape(23.dp)).padding(15.dp),content=content)
 }
-@Composable private fun Preview() {
- Box(Modifier.fillMaxWidth().height(170.dp).clip(RoundedCornerShape(18.dp)).background(Brush.linearGradient(listOf(Color(0xFF13A9DD),Color(0xFF7646C6),Color(0xFFE77BCB)))),contentAlignment=Alignment.Center) {
-  Icon(Icons.Default.PlayCircleFilled,null,tint=Color.White,modifier=Modifier.size(62.dp))
-  Text("VIDEO PREVIEW",Modifier.align(Alignment.BottomStart).padding(12.dp),color=Color.White,fontSize=10.sp)
+@Composable private fun Preview(uri: Uri? = null) {
+ if (uri != null) {
+  val context = androidx.compose.ui.platform.LocalContext.current
+  val player = remember(uri) {
+   ExoPlayer.Builder(context).build().apply {
+    setMediaItem(MediaItem.fromUri(uri))
+    prepare()
+    playWhenReady = false
+   }
+  }
+  DisposableEffect(player) { onDispose { player.release() } }
+  AndroidView(
+   factory = { ctx -> PlayerView(ctx).apply {
+    this.player = player
+    useController = true
+    layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+   } },
+   update = { it.player = player },
+   modifier = Modifier.fillMaxWidth().height(210.dp).clip(RoundedCornerShape(18.dp))
+  )
+ } else {
+  Box(Modifier.fillMaxWidth().height(170.dp).clip(RoundedCornerShape(18.dp)).background(Brush.linearGradient(listOf(Color(0xFF13A9DD),Color(0xFF7646C6),Color(0xFFE77BCB)))),contentAlignment=Alignment.Center) {
+   Icon(Icons.Default.PlayCircleFilled,null,tint=Color.White,modifier=Modifier.size(62.dp))
+   Text("IMPORT A VIDEO TO PREVIEW",Modifier.align(Alignment.BottomStart).padding(12.dp),color=Color.White,fontSize=10.sp)
+  }
  }
 }
 @Composable private fun Mode(title:String,sub:String,icon:androidx.compose.ui.graphics.vector.ImageVector,click:()->Unit) {
