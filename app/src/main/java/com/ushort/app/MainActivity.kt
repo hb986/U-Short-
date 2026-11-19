@@ -50,7 +50,7 @@ private val cyan = Color(0xFF49C9F0)
 class MainActivity : ComponentActivity() {
  override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); setContent { App() } }
 }
-private enum class Tab(val title:String) { HOME("Home"), CREATE("Create"), EDIT("Edit"), AI("AI"), PROFILE("Profile") }
+private enum class Tab(val title:String) { HOME("Home"), CREATE("Create"), AUTO("Auto"), MANUAL("Manual"), EDIT("Edit"), AI("AI"), PROFILE("Profile") }
 
 @Composable fun App() {
  var tab by remember { mutableStateOf(Tab.HOME) }
@@ -72,12 +72,14 @@ private enum class Tab(val title:String) { HOME("Home"), CREATE("Create"), EDIT(
     when(page) {
      Tab.HOME -> Home({tab=Tab.CREATE},{tab=Tab.CREATE},{tab=Tab.EDIT})
      Tab.CREATE -> CreateHub(
-      auto={tab=Tab.CREATE},
-      manual={tab=Tab.CREATE},
+      auto={tab=Tab.AUTO},
+      manual={tab=Tab.MANUAL},
       chooseVideo={pick.launch(arrayOf("video/*"))},
       selected=video!=null,
       openAI={tab=Tab.AI}
      )
+     Tab.AUTO -> Auto(video) { pick.launch(arrayOf("video/*")) }
+     Tab.MANUAL -> Manual(video) { pick.launch(arrayOf("video/*")) }
      Tab.EDIT -> Pro(video) { pick.launch(arrayOf("video/*")) }
      Tab.AI -> AssistantScreen()
      Tab.PROFILE -> Profile()
@@ -86,8 +88,8 @@ private enum class Tab(val title:String) { HOME("Home"), CREATE("Create"), EDIT(
    Row(Modifier.fillMaxWidth().padding(9.dp).clip(RoundedCornerShape(24.dp)).background(Color(0x5530195B)).border(1.dp,Color.White.copy(.2f),RoundedCornerShape(24.dp)).padding(vertical=9.dp),horizontalArrangement=Arrangement.SpaceAround) {
     listOf(Tab.HOME to Icons.Default.Home,Tab.CREATE to Icons.Default.Bolt,Tab.EDIT to Icons.Default.Tune,Tab.AI to Icons.Default.AutoAwesome,Tab.PROFILE to Icons.Default.Person).forEach { (t,ic) ->
      Column(Modifier.clickable { tab=t }.padding(horizontal=7.dp),horizontalAlignment=Alignment.CenterHorizontally) {
-      Icon(ic,null,tint=if(tab==t) Color.White else lilac.copy(.7f),modifier=Modifier.size(20.dp))
-      Text(t.title,color=if(tab==t) Color.White else lilac.copy(.7f),fontSize=9.sp)
+      Icon(ic,null,tint=if(tab==t || (t==Tab.CREATE && (tab==Tab.AUTO || tab==Tab.MANUAL))) Color.White else lilac.copy(.7f),modifier=Modifier.size(20.dp))
+      Text(t.title,color=if(tab==t || (t==Tab.CREATE && (tab==Tab.AUTO || tab==Tab.MANUAL))) Color.White else lilac.copy(.7f),fontSize=9.sp)
      }
     }
    }
@@ -280,7 +282,7 @@ private fun requestAssistant(endpoint:String,prompt:String):Result<String> = run
  var exposure by remember { mutableFloatStateOf(0f) }; var contrast by remember { mutableFloatStateOf(0f) }; var saturation by remember { mutableFloatStateOf(0f) }
  Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
   Heading("Pro Studio","Professional editing workspace.")
-  Panel { Preview(); Action("＋  Import footage",pick,false); if(video!=null) Text("Video selected ✓",color=Color(0xFFB9FFD9)) }
+  Panel { Preview(video); Action("＋  Import footage",pick,false); if(video!=null) Text("Video selected ✓",color=Color(0xFFB9FFD9)) }
   Panel { Text("Editing tools",color=Color.White,fontWeight=FontWeight.SemiBold); ToolGrid(listOf("Trim","Split","Speed","Effects","Text","Audio","Mask","Keyframe")) }
   Panel {
    Text("U SHORT Color Lab",color=Color.White,fontWeight=FontWeight.SemiBold)
