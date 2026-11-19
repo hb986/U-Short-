@@ -113,3 +113,32 @@ Configure the full chat endpoint URL in the AI screen. The server must accept JS
 - **Not yet implemented:** full automatic clip detection and rendering, multi-track timeline operations, advanced color pipeline/scopes/LUT processing, production audio tools, cloud projects, OAuth social publishing, scheduler and analytics.
 
 The tool directory is an organized roadmap and does not imply that every listed tool is already operational. Do not mark those tools complete until each implementation passes its own tests.
+
+## Google Gemini integration
+
+The Android U SHORT assistant now supports a dedicated Gemini backend. The API key is kept server-side; do not put it in Android source code, APK resources, or GitHub commits.
+
+### Deploy the backend
+1. Create a Gemini API key in [Google AI Studio](https://aistudio.google.com/app/apikey).
+2. In [Render](https://render.com/), create a new Blueprint deployment from this GitHub repository. Render reads the root `render.yaml` and deploys the Node service from `server/`.
+3. In the Render service environment, set:
+   - `GEMINI_API_KEY`: your key from Google AI Studio.
+   - `USHORT_APP_TOKEN`: a long, random private token that you create. Do not commit it to GitHub or share it publicly.
+   - `GEMINI_MODEL`: optional; defaults to `gemini-3.8-flash`.
+4. Wait for deployment and check `https://YOUR-SERVICE.onrender.com/health`. It should return JSON with `ok: true`.
+5. In U SHORT → AI, enter `https://YOUR-SERVICE.onrender.com/api/chat` and the same `USHORT_APP_TOKEN`, then save the connection.
+6. Send a test message. The app expects a JSON response containing `reply`.
+
+### Backend contract
+- `POST /api/chat`
+- Header: `Authorization: Bearer YOUR_USHORT_APP_TOKEN`
+- JSON body: `{ "message": "Write a 20-second short video script about..." }`
+- Successful response: `{ "reply": "...", "model": "..." }`
+- `GET /health` checks service readiness.
+
+The backend uses Google's official `@google/genai` SDK and the Gemini Interactions API. The app token is a basic private-access gate for a personal test deployment, not a replacement for per-user authentication, Firebase App Check, or production abuse prevention. Add proper user authentication and quotas before opening the service to the public. Never expose either secret in screenshots, chat messages, app source, or public commits.
+
+### Current integration status
+- **Implemented in source:** Android assistant sends authenticated requests to the configured backend; Node server calls Gemini and returns its answer; server-side API key; request size limit, rate limiting, security headers and health endpoint.
+- **Requires external configuration:** Gemini API key, deployed backend URL and matching private app token.
+- **Not yet verified:** Live end-to-end Gemini response and deployed service; these require deployment and valid secrets. No live Gemini connection is claimed until the user configures and tests it.
